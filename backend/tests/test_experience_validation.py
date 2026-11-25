@@ -244,3 +244,14 @@ def test_exported_schema_is_up_to_date():
     assert SCHEMA_PATH.read_text(encoding="utf-8") == render_schema(), (
         "extraction/schema.json is stale; run `uv run workstory-export-schema`"
     )
+
+
+# ---------- Sample dataset ----------
+
+SAMPLE_PATH = SCHEMA_PATH.parents[1] / "examples" / "sample-experience.json"
+
+
+def test_sample_dataset_is_valid_without_warnings():
+    result = validate_file(SAMPLE_PATH)
+    assert result.is_valid, [str(i) for i in result.errors]
+    assert result.warnings == [], [str(i) for i in result.warnings]

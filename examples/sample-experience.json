@@ -1,0 +1,795 @@
+{
+  "metadata": {
+    "schema_version": "1.0",
+    "owner_name": "Alex Rivera",
+    "generated_at": "2026-11-26T10:00:00Z",
+    "data_source": "Synthetic sample data (fictional engineer, company and repositories)",
+    "sanitised": true
+  },
+  "professional_summary": {
+    "summary": "Backend engineer with about 3.5 years of experience building Python and Node.js services for a B2B logistics platform. Focus on data migrations, reliable integrations, API performance and, more recently, LLM-based internal tooling.",
+    "experience_level": "3-4 years",
+    "primary_roles": ["Backend Engineer", "Python Developer"],
+    "primary_technologies": ["Python", "FastAPI", "PostgreSQL", "Node.js", "TypeScript", "GCP"]
+  },
+  "projects": [
+    {
+      "id": "proj-tracking-postgres-migration",
+      "name": "Shipment tracking migration from MongoDB to PostgreSQL",
+      "summary": "Moved the shipment tracking history store from MongoDB to PostgreSQL with zero downtime using dual writes, a throttled backfill and a feature-flagged read switch.",
+      "problem": "Tracking history lived in MongoDB while the rest of the shipment data was in PostgreSQL. Cross-store queries were done in application code, which made the tracking timeline endpoint slow and made reporting queries impossible to write in SQL.",
+      "context": "Tracking events arrive from many carriers with different payload shapes. The tracking timeline is one of the most used customer-facing endpoints, so downtime was not acceptable.",
+      "objectives": [
+        "Store tracking events in PostgreSQL next to shipments.",
+        "Migrate existing history without downtime or data loss.",
+        "Make tracking timeline queries faster."
+      ],
+      "my_contributions": [
+        "Designed the new tracking_events table, including a JSONB column for carrier-specific payloads.",
+        "Implemented the dual-write layer so new events were written to both MongoDB and PostgreSQL.",
+        "Wrote the batched backfill job with validation and a quarantine table for malformed documents.",
+        "Switched reads to PostgreSQL behind a feature flag and led the cutover.",
+        "Removed the MongoDB write path after the verification period."
+      ],
+      "implementation": "Python service using SQLAlchemy models and Alembic migrations. New events were written to both stores through a repository class that hid the dual write from callers. The backfill read MongoDB in batches ordered by _id, validated and normalised each document, and inserted with ON CONFLICT DO NOTHING so it could be safely re-run. A feature flag switched the timeline endpoint to read from PostgreSQL per tenant, which allowed a gradual rollout.",
+      "architecture": "Shipments API (FastAPI) -> TrackingRepository -> PostgreSQL (primary) with temporary dual write to MongoDB. Backfill runs as a separate one-off job. Reads are routed by a per-tenant feature flag during rollout.",
+      "challenges": [
+        {
+          "challenge": "Older MongoDB documents were inconsistent: missing fields, mixed timestamp formats and duplicated events.",
+          "solution": "Added a validation step in the backfill that normalised timestamps to UTC, de-duplicated by (shipment_id, carrier_event_id), and moved unfixable documents to a quarantine table for manual review."
+        },
+        {
+          "challenge": "Running the backfill against the production database risked slowing down live traffic.",
+          "solution": "Processed data in batches of 5,000 with keyset pagination and a configurable sleep between batches, and ran it outside peak hours."
+        }
+      ],
+      "decisions": [
+        {
+          "context": "The migration had to happen without downtime on a heavily used endpoint.",
+          "decision": "Use dual writes, then backfill, then switch reads behind a per-tenant feature flag.",
+          "reasoning": "Each step could be verified and rolled back independently, and rollout could start with low-traffic tenants.",
+          "alternatives": ["Big-bang migration in a maintenance window", "Change data capture from MongoDB"],
+          "tradeoffs": "Temporary extra write latency and code complexity while both stores were kept in sync.",
+          "pr_ids": ["pr-shipments-api-308", "pr-shipments-api-322"]
+        },
+        {
+          "context": "Each carrier sends tracking events with different extra fields.",
+          "decision": "Store common fields as typed columns and carrier-specific data in a JSONB column.",
+          "reasoning": "Keeps the common query paths indexed and typed without needing a table per carrier.",
+          "alternatives": ["One table per carrier", "Fully normalised attribute tables"],
+          "tradeoffs": "Carrier-specific fields are harder to query and validate at the database level.",
+          "pr_ids": ["pr-shipments-api-301"]
+        }
+      ],
+      "metrics": [
+        {
+          "name": "p95 tracking timeline query latency",
+          "before": 1200,
+          "after": 180,
+          "unit": "ms",
+          "period": "One week before vs one week after full cutover",
+          "evidence": "Before/after benchmark numbers in the description of shipments-api PR #322."
+        },
+        {
+          "name": "Downtime during cutover",
+          "after": 0,
+          "unit": "minutes",
+          "evidence": "Cutover notes in shipments-api PR #322."
+        }
+      ],
+      "categories": ["Database Design & Migration", "Backend Engineering", "System Design"],
+      "skills": [
+        { "name": "PostgreSQL", "involvement": "implemented", "evidence": "Designed the tracking_events schema with JSONB and indexes." },
+        { "name": "MongoDB", "involvement": "modified", "evidence": "Changed the existing MongoDB write path to dual write, then removed it." },
+        { "name": "Python", "involvement": "implemented", "evidence": "Dual-write repository and backfill job." },
+        { "name": "SQLAlchemy", "involvement": "implemented", "evidence": "New models and repository for tracking events." },
+        { "name": "Alembic", "involvement": "implemented", "evidence": "Schema migrations for the new tables." }
+      ],
+      "pr_ids": [
+        "pr-shipments-api-301",
+        "pr-shipments-api-308",
+        "pr-shipments-api-315",
+        "pr-shipments-api-322",
+        "pr-shipments-api-330"
+      ],
+      "complexity": "high",
+      "confidence": "high"
+    },
+    {
+      "id": "proj-webhook-delivery",
+      "name": "Reliable webhook delivery with retries",
+      "summary": "Rebuilt outbound customer webhooks on a PostgreSQL-backed job queue with exponential backoff, a dead-letter table and idempotency keys.",
+      "problem": "Webhooks were sent inline during request handling. If a customer endpoint was slow or down, the event was lost and the original request became slow.",
+      "context": "Customers rely on webhooks to update their own systems when a shipment status changes. Roughly 50,000 webhooks were sent per day.",
+      "objectives": [
+        "Stop losing webhooks when customer endpoints fail.",
+        "Remove webhook sending from the request path.",
+        "Give customers a way to detect duplicate deliveries."
+      ],
+      "my_contributions": [
+        "Proposed and implemented the PostgreSQL-backed delivery queue using an outbox table.",
+        "Implemented the retry worker with exponential backoff and jitter.",
+        "Added the dead-letter table and an internal endpoint to replay failed deliveries.",
+        "Added idempotency keys to webhook payloads and documented them for customers.",
+        "Wrote unit and integration tests for retry scheduling and worker concurrency."
+      ],
+      "implementation": "The request handler inserts a delivery row into an outbox table in the same transaction as the status change. Worker processes claim rows using SELECT ... FOR UPDATE SKIP LOCKED, send the HTTP request with a timeout, and on failure reschedule with exponential backoff and jitter (up to 8 attempts over about 24 hours). After the final attempt the row moves to a dead-letter table. Each payload carries an Idempotency-Key header derived from the event ID.",
+      "architecture": "Shipments API writes to an outbox table -> worker processes in notifications-service poll and claim jobs with SKIP LOCKED -> customer endpoints. Failed jobs go to a dead-letter table that can be replayed through an internal API.",
+      "challenges": [
+        {
+          "challenge": "Multiple workers could pick up the same job and send duplicate webhooks.",
+          "solution": "Used FOR UPDATE SKIP LOCKED to claim jobs atomically, and added idempotency keys so customers can safely ignore any remaining duplicates."
+        },
+        {
+          "challenge": "A single customer endpoint that was down generated a large number of retries.",
+          "solution": "Capped attempts and added jitter so retries were spread out instead of arriving in bursts."
+        }
+      ],
+      "decisions": [
+        {
+          "context": "Needed a durable queue for webhook jobs.",
+          "decision": "Use a PostgreSQL table with SKIP LOCKED instead of introducing a message broker.",
+          "reasoning": "About 50,000 jobs per day is well within what PostgreSQL can handle, the team already operated PostgreSQL, and the outbox pattern gives transactional enqueueing for free.",
+          "alternatives": ["Redis with Celery", "Kafka"],
+          "tradeoffs": "Polling adds some database load and the throughput ceiling is lower than a dedicated broker.",
+          "pr_ids": ["pr-notifications-service-88"]
+        },
+        {
+          "context": "Needed a retry policy that recovers from short outages without overloading customers.",
+          "decision": "Exponential backoff with full jitter, maximum 8 attempts, then dead-letter.",
+          "reasoning": "Covers outages of up to about a day while avoiding synchronised retry bursts.",
+          "alternatives": ["Fixed interval retries"],
+          "pr_ids": ["pr-notifications-service-93"]
+        }
+      ],
+      "metrics": [
+        {
+          "name": "Webhooks permanently failed after all retries",
+          "before": 4.2,
+          "after": 0.3,
+          "unit": "%",
+          "period": "30 days before vs 30 days after rollout",
+          "evidence": "Dashboard summary in the description of notifications-service PR #104."
+        }
+      ],
+      "categories": [
+        "Reliability & Observability",
+        "Backend Engineering",
+        "System Design",
+        "Third-party Integrations",
+        "Testing & Quality Engineering"
+      ],
+      "skills": [
+        { "name": "Python", "involvement": "implemented", "evidence": "Retry worker and outbox logic." },
+        { "name": "FastAPI", "involvement": "implemented", "evidence": "Internal replay endpoint for dead-lettered webhooks." },
+        { "name": "PostgreSQL", "involvement": "implemented", "evidence": "Outbox and dead-letter tables, SKIP LOCKED job claiming." },
+        { "name": "Pytest", "involvement": "implemented", "evidence": "Tests for retry scheduling and concurrent workers." },
+        { "name": "Kafka", "involvement": "discussed", "evidence": "Considered as an alternative queue in the design discussion of PR #88; not used." }
+      ],
+      "pr_ids": [
+        "pr-notifications-service-88",
+        "pr-notifications-service-93",
+        "pr-notifications-service-97",
+        "pr-notifications-service-104"
+      ],
+      "complexity": "high",
+      "confidence": "high"
+    },
+    {
+      "id": "proj-carrier-rates-service",
+      "name": "Carrier rate aggregation service",
+      "summary": "Node.js/TypeScript service that fetches shipping rates from several carrier APIs in parallel and returns them in one normalised format. Built together with another engineer.",
+      "problem": "The checkout flow called each carrier API one after another, so quoting was slow and every carrier returned a different response format.",
+      "objectives": [
+        "Return quotes from all carriers in one response.",
+        "Keep checkout fast even if one carrier is slow.",
+        "Use a single normalised rate format."
+      ],
+      "my_contributions": [
+        "Implemented the adapters for two of the five carriers.",
+        "Wrote the normalisation layer that converts units and currencies into one rate format.",
+        "Added per-carrier timeouts so slow carriers return partial results instead of blocking the response.",
+        "Added contract tests based on recorded carrier responses."
+      ],
+      "implementation": "Each carrier has an adapter implementing a common interface (getRates). The service calls all adapters in parallel using Promise.allSettled with a per-carrier timeout and returns whatever succeeded, marking the rest as unavailable. Responses pass through a normalisation step that converts weight units and currencies. An existing Redis cache, set up by a teammate, stores quotes for a short time.",
+      "challenges": [
+        {
+          "challenge": "Carriers returned different units, currencies and field names.",
+          "solution": "Created a single normalised rate type and per-carrier mapping functions, with tests for each mapping."
+        },
+        {
+          "challenge": "One carrier's sandbox API was unreliable, which made tests flaky.",
+          "solution": "Recorded real sandbox responses as fixtures and used them in contract tests."
+        }
+      ],
+      "decisions": [
+        {
+          "context": "A slow carrier could delay the whole checkout quote.",
+          "decision": "Call carriers in parallel with a per-carrier timeout and return partial results.",
+          "reasoning": "Checkout speed mattered more than always showing every carrier.",
+          "alternatives": ["Wait for all carriers", "Fully asynchronous quoting with polling"],
+          "tradeoffs": "Customers sometimes see fewer carrier options when a carrier is slow.",
+          "pr_ids": ["pr-carrier-gateway-45"]
+        }
+      ],
+      "categories": ["Third-party Integrations", "API Development"],
+      "skills": [
+        { "name": "Node.js", "involvement": "collaborated", "evidence": "Service built together with a teammate." },
+        { "name": "TypeScript", "involvement": "collaborated", "evidence": "Adapters and normalisation layer written in TypeScript." },
+        { "name": "REST APIs", "involvement": "implemented", "evidence": "Integrated two carrier REST APIs." },
+        { "name": "Redis", "involvement": "used", "evidence": "Used the existing quote cache; cache was set up by a teammate." }
+      ],
+      "pr_ids": [
+        "pr-carrier-gateway-41",
+        "pr-carrier-gateway-45",
+        "pr-carrier-gateway-52",
+        "pr-carrier-gateway-58"
+      ],
+      "complexity": "medium",
+      "confidence": "medium",
+      "uncertainties": [
+        "The split of adapter work between this engineer and the teammate is not fully clear from the PRs."
+      ]
+    },
+    {
+      "id": "proj-shipment-search-performance",
+      "name": "Shipment search endpoint performance",
+      "summary": "Made the shipment search API several times faster by fixing an N+1 query problem, adding targeted indexes and switching to keyset pagination.",
+      "problem": "The shipment search endpoint became slow for large tenants, with p95 latency over 2 seconds and timeouts on later pages.",
+      "objectives": ["Bring p95 search latency under 500 ms.", "Fix timeouts on deep pages."],
+      "my_contributions": [
+        "Profiled the endpoint and found an N+1 query caused by lazy-loaded relationships.",
+        "Replaced lazy loading with selectinload for the relationships used by the endpoint.",
+        "Added a composite index on (tenant_id, created_at) and a trigram index for reference number search.",
+        "Replaced offset pagination with keyset (cursor) pagination."
+      ],
+      "implementation": "Used SQL query logging and EXPLAIN ANALYZE to find slow queries. Changed the SQLAlchemy query to use selectinload, reducing 52 queries per request to 3. Added a composite B-tree index matching the default sort and a GIN pg_trgm index for partial reference number search. Replaced OFFSET with a cursor based on (created_at, id).",
+      "challenges": [
+        {
+          "challenge": "Deep pages became slower and slower with OFFSET pagination.",
+          "solution": "Switched to keyset pagination so every page costs about the same."
+        }
+      ],
+      "decisions": [
+        {
+          "context": "Users needed partial matching on reference numbers.",
+          "decision": "Use PostgreSQL pg_trgm with a GIN index instead of adding a search engine.",
+          "reasoning": "Met the requirement without operating new infrastructure.",
+          "alternatives": ["Elasticsearch"],
+          "tradeoffs": "Less flexible ranking and text search features than a dedicated search engine.",
+          "pr_ids": ["pr-shipments-api-356"]
+        },
+        {
+          "context": "Offset pagination was slow for deep pages.",
+          "decision": "Use keyset pagination with an opaque cursor.",
+          "reasoning": "Consistent performance regardless of page depth and stable results when new rows arrive.",
+          "alternatives": ["Keep OFFSET and cap the maximum page number"],
+          "tradeoffs": "Clients can no longer jump directly to an arbitrary page number.",
+          "pr_ids": ["pr-shipments-api-360"]
+        }
+      ],
+      "metrics": [
+        {
+          "name": "p95 shipment search latency",
+          "before": 2400,
+          "after": 350,
+          "unit": "ms",
+          "period": "Two weeks before vs two weeks after release",
+          "evidence": "APM numbers quoted in shipments-api PR #360."
+        },
+        {
+          "name": "Database queries per search request",
+          "before": 52,
+          "after": 3,
+          "unit": "queries",
+          "evidence": "Query logging output in shipments-api PR #351."
+        }
+      ],
+      "categories": ["Performance Optimisation", "API Development", "Backend Engineering"],
+      "skills": [
+        { "name": "PostgreSQL", "involvement": "implemented", "evidence": "Composite and trigram indexes, EXPLAIN ANALYZE tuning." },
+        { "name": "SQLAlchemy", "involvement": "modified", "evidence": "Changed existing queries to use selectinload." },
+        { "name": "FastAPI", "involvement": "modified", "evidence": "Changed the search endpoint to cursor pagination." }
+      ],
+      "pr_ids": ["pr-shipments-api-351", "pr-shipments-api-356", "pr-shipments-api-360"],
+      "complexity": "medium",
+      "confidence": "high"
+    },
+    {
+      "id": "proj-support-docs-assistant",
+      "name": "Support documentation assistant (prototype)",
+      "summary": "Prototype RAG assistant that answers internal support questions from help-centre articles, with citations to source articles.",
+      "problem": "Support agents spent a lot of time searching help-centre articles to answer repeated customer questions.",
+      "objectives": [
+        "Answer support questions using only internal documentation.",
+        "Show which articles each answer is based on."
+      ],
+      "my_contributions": [
+        "Built the ingestion script that splits articles by heading and stores embeddings in pgvector.",
+        "Implemented retrieval and a prompt that requires the model to cite article IDs.",
+        "Tried a cross-encoder reranking step in a separate PR that was not merged."
+      ],
+      "implementation": "Python scripts chunk help-centre articles by section heading, generate embeddings and store them in PostgreSQL with pgvector. At query time the top 5 chunks by cosine similarity are added to a prompt that instructs the LLM to answer only from the given chunks and cite their article IDs.",
+      "challenges": [
+        {
+          "challenge": "The model sometimes answered from general knowledge when the articles did not cover the question.",
+          "solution": "Changed the prompt to require citations and to reply that the documentation does not cover the question when no chunk is relevant."
+        }
+      ],
+      "decisions": [
+        {
+          "context": "Needed somewhere to store embeddings for the prototype.",
+          "decision": "Use pgvector in the existing PostgreSQL instance.",
+          "reasoning": "Avoided adding a separate vector database for a prototype.",
+          "alternatives": ["A hosted vector database"],
+          "pr_ids": ["pr-support-assistant-poc-7"]
+        }
+      ],
+      "categories": ["AI & GenAI"],
+      "skills": [
+        { "name": "Python", "involvement": "implemented", "evidence": "Ingestion and retrieval scripts." },
+        { "name": "LLMs", "involvement": "implemented", "evidence": "Answer generation with an LLM API." },
+        { "name": "RAG", "involvement": "implemented", "evidence": "Retrieval plus grounded answer generation." },
+        { "name": "Embeddings", "involvement": "implemented", "evidence": "Generated and stored embeddings for article chunks." },
+        { "name": "pgvector", "involvement": "implemented", "evidence": "Vector storage and cosine similarity search." },
+        { "name": "Prompt Engineering", "involvement": "implemented", "evidence": "Citation-enforcing prompt." },
+        { "name": "Cross-encoder Reranking", "involvement": "discussed", "evidence": "Experimented with in PR #15, which was closed without merging." }
+      ],
+      "pr_ids": [
+        "pr-support-assistant-poc-7",
+        "pr-support-assistant-poc-12",
+        "pr-support-assistant-poc-15"
+      ],
+      "complexity": "medium",
+      "confidence": "low",
+      "uncertainties": [
+        "No evidence that the prototype was used in production.",
+        "No evaluation results were recorded, so answer quality is unknown."
+      ]
+    },
+    {
+      "id": "proj-structured-logging-tracing",
+      "name": "Structured logging and distributed tracing",
+      "summary": "Switched two Python services to structured JSON logs with request IDs and added OpenTelemetry tracing exported to GCP.",
+      "problem": "Logs were plain text without request IDs, so following a single failing request across services was slow and manual.",
+      "objectives": [
+        "Make every log line searchable by request ID.",
+        "Trace requests across the shipments API and notifications service."
+      ],
+      "my_contributions": [
+        "Changed the existing logging setup to output structured JSON with a request ID on every line.",
+        "Added request ID middleware using contextvars and propagated the ID to outgoing calls.",
+        "Integrated OpenTelemetry tracing for FastAPI and HTTP clients, exporting to Cloud Trace.",
+        "Updated Dockerfiles and Cloud Run service settings for the new configuration."
+      ],
+      "implementation": "A FastAPI middleware reads or creates an X-Request-ID header and stores it in a contextvar. A logging filter adds it to every JSON log record. The OpenTelemetry SDK auto-instruments FastAPI, SQLAlchemy and httpx, with traces exported to Cloud Trace at a 10% sampling rate.",
+      "challenges": [
+        {
+          "challenge": "Full tracing and debug logging increased logging costs.",
+          "solution": "Sampled 10% of traces and disabled debug logs in production through configuration."
+        }
+      ],
+      "decisions": [
+        {
+          "context": "Request IDs had to be available everywhere without passing them through every function.",
+          "decision": "Store the request ID in a contextvar set by middleware.",
+          "reasoning": "Works with async code and needs no changes to function signatures.",
+          "alternatives": ["Passing the request ID explicitly", "Thread-local storage"],
+          "pr_ids": ["pr-shipments-api-372"]
+        }
+      ],
+      "categories": ["Reliability & Observability", "Cloud & Infrastructure", "Developer Productivity"],
+      "skills": [
+        { "name": "Python", "involvement": "modified", "evidence": "Changed the existing logging configuration." },
+        { "name": "OpenTelemetry", "involvement": "used", "evidence": "Integrated the OpenTelemetry SDK and auto-instrumentation." },
+        { "name": "GCP", "involvement": "used", "evidence": "Exported traces to Cloud Trace and used Cloud Logging." },
+        { "name": "Cloud Run", "involvement": "modified", "evidence": "Updated existing Cloud Run service configuration." },
+        { "name": "Docker", "involvement": "modified", "evidence": "Updated existing Dockerfiles." }
+      ],
+      "pr_ids": [
+        "pr-shipments-api-372",
+        "pr-notifications-service-112",
+        "pr-infra-config-19"
+      ],
+      "complexity": "medium",
+      "confidence": "high"
+    }
+  ],
+  "pull_requests": [
+    {
+      "id": "pr-shipments-api-301",
+      "project_id": "proj-tracking-postgres-migration",
+      "title": "Add tracking_events table and migration",
+      "summary": "Adds the tracking_events table with typed common columns, a JSONB payload column and indexes on (shipment_id, occurred_at).",
+      "contribution": "Designed the schema and wrote the Alembic migration and SQLAlchemy model.",
+      "problem": "Tracking events had no table in PostgreSQL.",
+      "technologies": ["PostgreSQL", "SQLAlchemy", "Alembic"],
+      "repo": "shipments-api",
+      "url": "https://github.com/example-org/shipments-api/pull/301",
+      "created_at": "2025-02-03",
+      "merged_at": "2025-02-05",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-shipments-api-308",
+      "project_id": "proj-tracking-postgres-migration",
+      "title": "Dual-write tracking events to PostgreSQL",
+      "summary": "Introduces TrackingRepository, which writes each new event to both MongoDB and PostgreSQL.",
+      "contribution": "Implemented the repository and the dual-write logic, with tests.",
+      "technologies": ["Python", "PostgreSQL", "MongoDB"],
+      "repo": "shipments-api",
+      "url": "https://github.com/example-org/shipments-api/pull/308",
+      "created_at": "2025-02-12",
+      "merged_at": "2025-02-17",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-shipments-api-315",
+      "project_id": "proj-tracking-postgres-migration",
+      "title": "Backfill tracking history from MongoDB",
+      "summary": "One-off batched backfill job with validation, de-duplication and a quarantine table for malformed documents.",
+      "contribution": "Wrote the backfill job and the validation and quarantine logic.",
+      "technologies": ["Python", "PostgreSQL", "MongoDB"],
+      "repo": "shipments-api",
+      "url": "https://github.com/example-org/shipments-api/pull/315",
+      "created_at": "2025-02-24",
+      "merged_at": "2025-03-03",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-shipments-api-322",
+      "project_id": "proj-tracking-postgres-migration",
+      "title": "Read tracking timeline from PostgreSQL behind feature flag",
+      "summary": "Routes timeline reads to PostgreSQL per tenant using a feature flag. Includes before/after benchmarks and cutover notes.",
+      "contribution": "Implemented the read switch, ran the benchmarks and led the rollout.",
+      "technologies": ["Python", "FastAPI", "PostgreSQL"],
+      "repo": "shipments-api",
+      "url": "https://github.com/example-org/shipments-api/pull/322",
+      "created_at": "2025-03-10",
+      "merged_at": "2025-03-14",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-shipments-api-330",
+      "project_id": "proj-tracking-postgres-migration",
+      "title": "Remove MongoDB tracking write path",
+      "summary": "Removes dual writes and MongoDB tracking code after the verification period.",
+      "contribution": "Removed the old code path and cleaned up configuration.",
+      "technologies": ["Python", "MongoDB"],
+      "repo": "shipments-api",
+      "url": "https://github.com/example-org/shipments-api/pull/330",
+      "created_at": "2025-04-07",
+      "merged_at": "2025-04-08",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-notifications-service-88",
+      "project_id": "proj-webhook-delivery",
+      "title": "Outbox table and SKIP LOCKED webhook worker",
+      "summary": "Moves webhook sending out of the request path into an outbox table processed by workers. The description compares PostgreSQL, Redis/Celery and Kafka as queue options.",
+      "contribution": "Wrote the design notes and implemented the outbox table and worker.",
+      "technologies": ["Python", "PostgreSQL"],
+      "repo": "notifications-service",
+      "url": "https://github.com/example-org/notifications-service/pull/88",
+      "created_at": "2025-06-02",
+      "merged_at": "2025-06-10",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-notifications-service-93",
+      "project_id": "proj-webhook-delivery",
+      "title": "Exponential backoff with jitter and dead-letter table",
+      "summary": "Adds retry scheduling with exponential backoff and full jitter, a maximum of 8 attempts, and a dead-letter table.",
+      "contribution": "Implemented retry scheduling and dead-lettering, with tests.",
+      "technologies": ["Python", "PostgreSQL", "Pytest"],
+      "repo": "notifications-service",
+      "url": "https://github.com/example-org/notifications-service/pull/93",
+      "created_at": "2025-06-16",
+      "merged_at": "2025-06-20",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-notifications-service-97",
+      "project_id": "proj-webhook-delivery",
+      "title": "Idempotency keys and replay endpoint",
+      "summary": "Adds an Idempotency-Key header to webhook payloads and an internal endpoint to replay dead-lettered deliveries.",
+      "contribution": "Implemented both features and updated customer documentation.",
+      "technologies": ["Python", "FastAPI"],
+      "repo": "notifications-service",
+      "url": "https://github.com/example-org/notifications-service/pull/97",
+      "created_at": "2025-06-25",
+      "merged_at": "2025-07-01",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-notifications-service-104",
+      "project_id": "proj-webhook-delivery",
+      "title": "Worker concurrency tests and rollout",
+      "summary": "Adds integration tests for concurrent workers and enables the new delivery path for all tenants. Includes a 30-day before/after failure rate summary.",
+      "contribution": "Wrote the concurrency tests and managed the rollout.",
+      "technologies": ["Python", "Pytest", "PostgreSQL"],
+      "repo": "notifications-service",
+      "url": "https://github.com/example-org/notifications-service/pull/104",
+      "created_at": "2025-07-08",
+      "merged_at": "2025-07-15",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-carrier-gateway-41",
+      "project_id": "proj-carrier-rates-service",
+      "title": "Carrier adapter interface and first adapter",
+      "summary": "Defines the common getRates interface and implements the first carrier adapter.",
+      "contribution": "Co-designed the interface with a teammate and implemented the first adapter.",
+      "technologies": ["TypeScript", "Node.js"],
+      "repo": "carrier-gateway",
+      "url": "https://github.com/example-org/carrier-gateway/pull/41",
+      "created_at": "2024-09-09",
+      "merged_at": "2024-09-13",
+      "status": "merged",
+      "confidence": "medium"
+    },
+    {
+      "id": "pr-carrier-gateway-45",
+      "project_id": "proj-carrier-rates-service",
+      "title": "Parallel rate fetching with per-carrier timeouts",
+      "summary": "Calls carriers in parallel with Promise.allSettled and returns partial results when a carrier times out.",
+      "contribution": "Implemented the parallel fan-out and timeout handling.",
+      "technologies": ["TypeScript", "Node.js"],
+      "repo": "carrier-gateway",
+      "url": "https://github.com/example-org/carrier-gateway/pull/45",
+      "created_at": "2024-09-23",
+      "merged_at": "2024-09-27",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-carrier-gateway-52",
+      "project_id": "proj-carrier-rates-service",
+      "title": "Normalise rates across carriers",
+      "summary": "Adds the normalised rate type and per-carrier mapping for units and currencies.",
+      "contribution": "Implemented the normalisation layer and mapping tests.",
+      "technologies": ["TypeScript"],
+      "repo": "carrier-gateway",
+      "url": "https://github.com/example-org/carrier-gateway/pull/52",
+      "created_at": "2024-10-14",
+      "merged_at": "2024-10-18",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-carrier-gateway-58",
+      "project_id": "proj-carrier-rates-service",
+      "title": "Second carrier adapter and contract tests",
+      "summary": "Adds a second carrier adapter and contract tests that use recorded sandbox responses.",
+      "contribution": "Implemented the adapter and the fixture-based contract tests.",
+      "technologies": ["TypeScript", "Node.js", "REST APIs"],
+      "repo": "carrier-gateway",
+      "url": "https://github.com/example-org/carrier-gateway/pull/58",
+      "created_at": "2024-11-04",
+      "merged_at": "2024-11-11",
+      "status": "merged",
+      "confidence": "medium"
+    },
+    {
+      "id": "pr-shipments-api-351",
+      "project_id": "proj-shipment-search-performance",
+      "title": "Fix N+1 queries in shipment search",
+      "summary": "Uses selectinload for relationships loaded by the search endpoint. Query count per request drops from 52 to 3.",
+      "contribution": "Profiled the endpoint and fixed the query loading strategy.",
+      "technologies": ["SQLAlchemy", "PostgreSQL"],
+      "repo": "shipments-api",
+      "url": "https://github.com/example-org/shipments-api/pull/351",
+      "created_at": "2025-08-04",
+      "merged_at": "2025-08-06",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-shipments-api-356",
+      "project_id": "proj-shipment-search-performance",
+      "title": "Add composite and trigram indexes for search",
+      "summary": "Adds a (tenant_id, created_at) index and a GIN pg_trgm index on reference numbers.",
+      "contribution": "Analysed query plans and added the indexes with a concurrent migration.",
+      "technologies": ["PostgreSQL", "Alembic"],
+      "repo": "shipments-api",
+      "url": "https://github.com/example-org/shipments-api/pull/356",
+      "created_at": "2025-08-11",
+      "merged_at": "2025-08-13",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-shipments-api-360",
+      "project_id": "proj-shipment-search-performance",
+      "title": "Keyset pagination for shipment search",
+      "summary": "Replaces offset pagination with an opaque cursor based on (created_at, id). Includes p95 latency before and after.",
+      "contribution": "Implemented cursor pagination and updated the API documentation.",
+      "technologies": ["FastAPI", "PostgreSQL"],
+      "repo": "shipments-api",
+      "url": "https://github.com/example-org/shipments-api/pull/360",
+      "created_at": "2025-08-18",
+      "merged_at": "2025-08-22",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-support-assistant-poc-7",
+      "project_id": "proj-support-docs-assistant",
+      "title": "Ingest help-centre articles into pgvector",
+      "summary": "Splits articles by heading, generates embeddings and stores them in a pgvector table.",
+      "contribution": "Wrote the ingestion script and the table definition.",
+      "technologies": ["Python", "pgvector", "Embeddings"],
+      "repo": "support-assistant-poc",
+      "url": "https://github.com/example-org/support-assistant-poc/pull/7",
+      "created_at": "2026-03-02",
+      "merged_at": "2026-03-04",
+      "status": "merged",
+      "confidence": "medium"
+    },
+    {
+      "id": "pr-support-assistant-poc-12",
+      "project_id": "proj-support-docs-assistant",
+      "title": "Retrieval and cited answer generation",
+      "summary": "Adds top-5 cosine similarity retrieval and a prompt that requires article citations.",
+      "contribution": "Implemented retrieval and the prompt.",
+      "technologies": ["Python", "LLMs", "RAG"],
+      "repo": "support-assistant-poc",
+      "url": "https://github.com/example-org/support-assistant-poc/pull/12",
+      "created_at": "2026-03-16",
+      "merged_at": "2026-03-20",
+      "status": "merged",
+      "confidence": "medium"
+    },
+    {
+      "id": "pr-support-assistant-poc-15",
+      "project_id": "proj-support-docs-assistant",
+      "title": "Experiment: cross-encoder reranking",
+      "summary": "Experimental reranking step using a cross-encoder model. Closed without merging.",
+      "contribution": "Wrote the experiment; it was not adopted.",
+      "technologies": ["Python", "Cross-encoder Reranking"],
+      "repo": "support-assistant-poc",
+      "url": "https://github.com/example-org/support-assistant-poc/pull/15",
+      "created_at": "2026-04-06",
+      "status": "closed",
+      "confidence": "low"
+    },
+    {
+      "id": "pr-shipments-api-372",
+      "project_id": "proj-structured-logging-tracing",
+      "title": "Structured JSON logging with request IDs",
+      "summary": "Adds request ID middleware using contextvars and switches logs to JSON format.",
+      "contribution": "Implemented the middleware and logging changes.",
+      "technologies": ["Python", "FastAPI"],
+      "repo": "shipments-api",
+      "url": "https://github.com/example-org/shipments-api/pull/372",
+      "created_at": "2025-10-06",
+      "merged_at": "2025-10-09",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-notifications-service-112",
+      "project_id": "proj-structured-logging-tracing",
+      "title": "OpenTelemetry tracing for notifications service",
+      "summary": "Adds OpenTelemetry auto-instrumentation and Cloud Trace export with 10% sampling.",
+      "contribution": "Integrated tracing and configured sampling.",
+      "technologies": ["Python", "OpenTelemetry", "GCP"],
+      "repo": "notifications-service",
+      "url": "https://github.com/example-org/notifications-service/pull/112",
+      "created_at": "2025-10-20",
+      "merged_at": "2025-10-24",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-infra-config-19",
+      "project_id": "proj-structured-logging-tracing",
+      "title": "Cloud Run and Dockerfile updates for tracing",
+      "summary": "Updates Dockerfiles and Cloud Run environment settings for tracing and log levels.",
+      "contribution": "Changed existing deployment configuration.",
+      "technologies": ["Docker", "Cloud Run"],
+      "repo": "infra-config",
+      "url": "https://github.com/example-org/infra-config/pull/19",
+      "created_at": "2025-10-27",
+      "merged_at": "2025-10-29",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-shipments-api-365",
+      "title": "Upgrade Pydantic to v2",
+      "summary": "Upgrades Pydantic and updates model configuration and validators to the v2 API.",
+      "contribution": "Performed the upgrade and fixed failing tests.",
+      "technologies": ["Python", "FastAPI"],
+      "repo": "shipments-api",
+      "url": "https://github.com/example-org/shipments-api/pull/365",
+      "created_at": "2025-09-08",
+      "merged_at": "2025-09-12",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-infra-config-22",
+      "title": "Cache dependencies in CI",
+      "summary": "Caches Python dependencies between CI runs.",
+      "contribution": "Added the cache step to the CI workflow.",
+      "technologies": ["GitHub Actions"],
+      "repo": "infra-config",
+      "url": "https://github.com/example-org/infra-config/pull/22",
+      "created_at": "2025-11-03",
+      "merged_at": "2025-11-04",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-web-dashboard-210",
+      "title": "Fix typos in README",
+      "summary": "Documentation typo fixes.",
+      "contribution": "Fixed typos.",
+      "repo": "web-dashboard",
+      "url": "https://github.com/example-org/web-dashboard/pull/210",
+      "created_at": "2025-05-12",
+      "merged_at": "2025-05-12",
+      "status": "merged",
+      "confidence": "high"
+    },
+    {
+      "id": "pr-shipments-api-380",
+      "title": "Draft: per-tenant rate limiting",
+      "summary": "Early draft of per-tenant API rate limiting. Still open.",
+      "contribution": "Started the implementation; not finished.",
+      "technologies": ["Python", "FastAPI"],
+      "repo": "shipments-api",
+      "url": "https://github.com/example-org/shipments-api/pull/380",
+      "created_at": "2025-11-17",
+      "status": "open",
+      "confidence": "low"
+    }
+  ],
+  "skills": [
+    { "name": "Python", "category": "Languages" },
+    { "name": "TypeScript", "category": "Languages", "aliases": ["TS"] },
+    { "name": "FastAPI", "category": "Backend" },
+    { "name": "Node.js", "category": "Backend", "aliases": ["Node", "NodeJS"] },
+    { "name": "REST APIs", "category": "Backend", "aliases": ["REST"] },
+    { "name": "SQLAlchemy", "category": "Backend" },
+    { "name": "PostgreSQL", "category": "Databases", "aliases": ["Postgres", "psql"] },
+    { "name": "MongoDB", "category": "Databases", "aliases": ["Mongo"] },
+    { "name": "Redis", "category": "Databases" },
+    { "name": "Alembic", "category": "Databases", "description": "Database schema migrations for SQLAlchemy." },
+    { "name": "pgvector", "category": "Databases" },
+    { "name": "Kafka", "category": "Messaging", "aliases": ["Apache Kafka"] },
+    { "name": "Docker", "category": "Infrastructure" },
+    { "name": "GCP", "category": "Infrastructure", "aliases": ["Google Cloud"] },
+    { "name": "Cloud Run", "category": "Infrastructure" },
+    { "name": "OpenTelemetry", "category": "Infrastructure", "aliases": ["OTel"] },
+    { "name": "LLMs", "category": "AI/GenAI", "aliases": ["LLM", "Large Language Models"] },
+    { "name": "RAG", "category": "AI/GenAI", "aliases": ["Retrieval-Augmented Generation"] },
+    { "name": "Embeddings", "category": "AI/GenAI" },
+    { "name": "Prompt Engineering", "category": "AI/GenAI" },
+    { "name": "Cross-encoder Reranking", "category": "AI/GenAI", "aliases": ["Reranking"] },
+    { "name": "Pytest", "category": "Testing" }
+  ],
+  "categories": [
+    { "name": "Backend Engineering" },
+    { "name": "API Development" },
+    { "name": "Database Design & Migration" },
+    { "name": "System Design" },
+    { "name": "Performance Optimisation" },
+    { "name": "Reliability & Observability" },
+    { "name": "Cloud & Infrastructure" },
+    { "name": "AI & GenAI" },
+    { "name": "Third-party Integrations" },
+    { "name": "Developer Productivity" },
+    { "name": "Testing & Quality Engineering" }
+  ]
+}
