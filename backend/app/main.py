@@ -8,7 +8,7 @@ import logging
 
 from fastapi import FastAPI
 
-from app.api import health, imports
+from app.api import experience, health, imports
 from app.config import get_settings
 
 
@@ -25,6 +25,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health.router)
     app.include_router(imports.router)
+    app.include_router(experience.router)
     return app
 
 
