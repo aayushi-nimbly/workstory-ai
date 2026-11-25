@@ -112,6 +112,15 @@ def _apply_filters(
                 )
             stmt = stmt.where(exists().where(and_(*conditions)))
 
+    elif filters.involvement:
+        # No skill given: any skill used at these levels counts.
+        stmt = stmt.where(
+            exists().where(
+                db.ProjectSkill.project_id == db.Project.id,
+                db.ProjectSkill.involvement.in_([i.value for i in filters.involvement]),
+            )
+        )
+
     if filters.categories:
         rows = session.execute(select(db.Category.id, db.Category.name)).all()
         by_name = {name.casefold(): cid for cid, name in rows}

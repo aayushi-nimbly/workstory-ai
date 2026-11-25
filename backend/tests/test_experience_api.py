@@ -96,6 +96,14 @@ def test_involvement_filter_separates_real_experience(client, imported):
     }
 
 
+def test_involvement_without_skill_matches_any_skill(client, imported):
+    # Every sample project has at least one implemented/collaborated skill except logging,
+    # where all skills were modified or used.
+    ids = project_ids(client, involvement=["implemented", "collaborated"])
+    assert len(ids) == 5
+    assert "proj-structured-logging-tracing" not in ids
+
+
 def test_unknown_skill_returns_empty(client, imported):
     body = client.get("/projects", params={"skill": "Haskell"}).json()
     assert body == {"items": [], "total": 0, "limit": 20, "offset": 0}
