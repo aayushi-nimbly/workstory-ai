@@ -27,7 +27,7 @@ Python · FastAPI · PostgreSQL · pgvector · Next.js · Ollama (local LLM + em
 
 ## Local development
 
-Requirements: Docker, [uv](https://docs.astral.sh/uv/).
+Requirements: Docker, [uv](https://docs.astral.sh/uv/), Node.js 20+.
 
 ```bash
 # 1. Start PostgreSQL + pgvector (host port 5433)
@@ -51,6 +51,15 @@ uv run workstory-validate ../examples/sample-experience.json
 uv run workstory-import ../examples/sample-experience.json
 curl -F "file=@../examples/sample-experience.json" localhost:8000/imports
 ```
+
+```bash
+# 4. Run the web app (in another terminal)  →  http://localhost:3000
+cd frontend
+npm install
+npm run dev
+```
+
+The web app reads the API from `API_URL` (default `http://localhost:8000`).
 
 Imports are snapshots: records missing from the file are removed, and re-importing
 an unchanged file is a no-op (`--force` / `?force=true` to re-import anyway).
