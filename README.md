@@ -25,6 +25,29 @@ A local, AI-powered workspace that turns an engineer's pull-request history into
 
 Python · FastAPI · PostgreSQL · pgvector · Next.js · Ollama (local LLM + embeddings) · Docker
 
+## Local development
+
+Requirements: Docker, [uv](https://docs.astral.sh/uv/).
+
+```bash
+# 1. Start PostgreSQL + pgvector (host port 5433)
+docker compose up -d
+
+# 2. Install backend dependencies and run migrations
+cd backend
+uv sync
+uv run alembic upgrade head
+
+# 3. Run the API  →  http://localhost:8000/health  ·  docs at /docs
+uv run uvicorn app.main:app --reload
+
+# Tests (database tests are skipped if Postgres isn't running)
+uv run pytest
+
+# Validate an experience file
+uv run workstory-validate ../examples/sample-experience.json
+```
+
 ## Privacy
 
 All data stays on your machine. Real experience files live in `data/` and are excluded from version control.

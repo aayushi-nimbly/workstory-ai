@@ -1,0 +1,22 @@
+services:
+  db:
+    image: pgvector/pgvector:0.8.0-pg17
+    container_name: workstory-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-workstory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-workstory}
+      POSTGRES_DB: ${POSTGRES_DB:-workstory}
+    ports:
+      # 5433 on the host avoids clashing with a locally installed PostgreSQL.
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - workstory-db-data:/var/lib/postgresql/data
+      - ./docker/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  workstory-db-data:

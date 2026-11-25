@@ -1,6 +1,14 @@
 import copy
+from pathlib import Path
 
 import pytest
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import sessionmaker
+
+from app.config import get_settings
 
 _VALID = {
     "metadata": {
@@ -83,3 +91,36 @@ _VALID = {
 def valid_data() -> dict:
     """A small, fully valid experience file. Tests mutate their own copy."""
     return copy.deepcopy(_VALID)
+
+
+# ---------- Database fixtures ----------
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(scope="session")
+def test_engine():
+    """Engine for the separate test database, migrated to the latest version.
+
+    Tests using it are skipped when the database is not running
+    (start it with `docker compose up -d` from the repo root).
+    """
+    url = get_settings().test_database_url
+    engine = create_engine(url, pool_pre_ping=True)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except OperationalError:
+        pytest.skip("test database not reachable; run `docker compose up -d`")
+
+    alembic_cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    alembic_cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(alembic_cfg, "head")
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def db_session(test_engine):
+    with sessionmaker(bind=test_engine, expire_on_commit=False)() as session:
+        yield session
