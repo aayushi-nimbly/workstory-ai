@@ -6,7 +6,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 
@@ -122,5 +122,17 @@ def test_engine():
 
 @pytest.fixture
 def db_session(test_engine):
-    with sessionmaker(bind=test_engine, expire_on_commit=False)() as session:
+    """A session whose changes are rolled back after each test."""
+    with test_engine.connect() as connection:
+        transaction = connection.begin()
+        session = Session(bind=connection, join_transaction_mode="create_savepoint")
         yield session
+        session.close()
+        transaction.rollback()
+
+
+@pytest.fixture(scope="session")
+def alembic_config(test_engine):
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("sqlalchemy.url", test_engine.url.render_as_string(hide_password=False))
+    return cfg
