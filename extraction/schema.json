@@ -1,0 +1,707 @@
+{
+  "$defs": {
+    "Category": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "Engineering category, e.g. 'Backend Engineering'.",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Category",
+      "type": "object"
+    },
+    "Challenge": {
+      "additionalProperties": false,
+      "properties": {
+        "challenge": {
+          "minLength": 1,
+          "title": "Challenge",
+          "type": "string"
+        },
+        "solution": {
+          "minLength": 1,
+          "title": "Solution",
+          "type": "string"
+        }
+      },
+      "required": [
+        "challenge",
+        "solution"
+      ],
+      "title": "Challenge",
+      "type": "object"
+    },
+    "Complexity": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Complexity",
+      "type": "string"
+    },
+    "Confidence": {
+      "description": "How sure the extraction is that this information is accurate.",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "Decision": {
+      "additionalProperties": false,
+      "description": "A technical decision made during a project.",
+      "properties": {
+        "context": {
+          "description": "The problem or situation that required a decision.",
+          "minLength": 1,
+          "title": "Context",
+          "type": "string"
+        },
+        "decision": {
+          "description": "What was decided.",
+          "minLength": 1,
+          "title": "Decision",
+          "type": "string"
+        },
+        "reasoning": {
+          "description": "Why it was decided.",
+          "minLength": 1,
+          "title": "Reasoning",
+          "type": "string"
+        },
+        "alternatives": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Alternatives",
+          "type": "array"
+        },
+        "tradeoffs": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tradeoffs"
+        },
+        "pr_ids": {
+          "description": "PRs that support this decision.",
+          "items": {
+            "maxLength": 100,
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "type": "string"
+          },
+          "title": "Pr Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "context",
+        "decision",
+        "reasoning"
+      ],
+      "title": "Decision",
+      "type": "object"
+    },
+    "Involvement": {
+      "description": "How directly the engineer worked with a skill in a project.\n\nOrdered from strongest to weakest evidence of practical experience.",
+      "enum": [
+        "implemented",
+        "collaborated",
+        "modified",
+        "used",
+        "discussed",
+        "mentioned"
+      ],
+      "title": "Involvement",
+      "type": "string"
+    },
+    "Metadata": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "description": "Version of this file format.",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "owner_name": {
+          "description": "Name of the engineer this experience belongs to.",
+          "minLength": 1,
+          "title": "Owner Name",
+          "type": "string"
+        },
+        "generated_at": {
+          "description": "When the file was generated (ISO 8601).",
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "data_source": {
+          "description": "Where the data came from, e.g. 'GitHub PRs'.",
+          "minLength": 1,
+          "title": "Data Source",
+          "type": "string"
+        },
+        "sanitised": {
+          "description": "True if secrets, customer data and confidential details were removed.",
+          "title": "Sanitised",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "schema_version",
+        "owner_name",
+        "generated_at",
+        "data_source",
+        "sanitised"
+      ],
+      "title": "Metadata",
+      "type": "object"
+    },
+    "Metric": {
+      "additionalProperties": false,
+      "description": "A measurable outcome. Only record metrics that are backed by evidence.",
+      "properties": {
+        "name": {
+          "description": "e.g. 'p95 API latency'.",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "before": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Before"
+        },
+        "after": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "e.g. 'ms', '%', 'requests/s'.",
+          "title": "Unit"
+        },
+        "period": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Measurement period, if known.",
+          "title": "Period"
+        },
+        "evidence": {
+          "description": "Where this number comes from. Required.",
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "evidence"
+      ],
+      "title": "Metric",
+      "type": "object"
+    },
+    "PRStatus": {
+      "enum": [
+        "merged",
+        "open",
+        "closed"
+      ],
+      "title": "PRStatus",
+      "type": "string"
+    },
+    "ProfessionalSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "experience_level": {
+          "description": "e.g. '3-4 years', 'Mid-level'.",
+          "minLength": 1,
+          "title": "Experience Level",
+          "type": "string"
+        },
+        "primary_roles": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Primary Roles",
+          "type": "array"
+        },
+        "primary_technologies": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Primary Technologies",
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary",
+        "experience_level"
+      ],
+      "title": "ProfessionalSummary",
+      "type": "object"
+    },
+    "Project": {
+      "additionalProperties": false,
+      "description": "A larger piece of engineering work, usually made of several related PRs.",
+      "properties": {
+        "id": {
+          "maxLength": 100,
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "problem": {
+          "minLength": 1,
+          "title": "Problem",
+          "type": "string"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Business/technical context.",
+          "title": "Context"
+        },
+        "objectives": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Objectives",
+          "type": "array"
+        },
+        "my_contributions": {
+          "description": "What this engineer personally did.",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "My Contributions",
+          "type": "array"
+        },
+        "implementation": {
+          "minLength": 1,
+          "title": "Implementation",
+          "type": "string"
+        },
+        "architecture": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Architecture"
+        },
+        "challenges": {
+          "items": {
+            "$ref": "#/$defs/Challenge"
+          },
+          "title": "Challenges",
+          "type": "array"
+        },
+        "decisions": {
+          "items": {
+            "$ref": "#/$defs/Decision"
+          },
+          "title": "Decisions",
+          "type": "array"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metric"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "categories": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Categories",
+          "type": "array"
+        },
+        "skills": {
+          "items": {
+            "$ref": "#/$defs/ProjectSkill"
+          },
+          "title": "Skills",
+          "type": "array"
+        },
+        "pr_ids": {
+          "items": {
+            "maxLength": 100,
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "type": "string"
+          },
+          "title": "Pr Ids",
+          "type": "array"
+        },
+        "complexity": {
+          "$ref": "#/$defs/Complexity"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "uncertainties": {
+          "description": "Ambiguous or unverified points flagged during extraction.",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Uncertainties",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "summary",
+        "problem",
+        "my_contributions",
+        "implementation",
+        "categories",
+        "complexity",
+        "confidence"
+      ],
+      "title": "Project",
+      "type": "object"
+    },
+    "ProjectSkill": {
+      "additionalProperties": false,
+      "description": "Link between a project and a skill, with how deeply the skill was used.",
+      "properties": {
+        "name": {
+          "description": "Canonical skill name; must exist in the top-level 'skills'.",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "involvement": {
+          "$ref": "#/$defs/Involvement"
+        },
+        "evidence": {
+          "description": "Short explanation of how the skill was used.",
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "involvement",
+        "evidence"
+      ],
+      "title": "ProjectSkill",
+      "type": "object"
+    },
+    "PullRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 100,
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "project_id": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "pattern": "^[a-z0-9][a-z0-9-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Project this PR belongs to, if any.",
+          "title": "Project Id"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "summary": {
+          "description": "Sanitised description of the PR.",
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "contribution": {
+          "description": "What this engineer did in the PR.",
+          "minLength": 1,
+          "title": "Contribution",
+          "type": "string"
+        },
+        "problem": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Problem"
+        },
+        "technologies": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Technologies",
+          "type": "array"
+        },
+        "repo": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repo"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "created_at": {
+          "format": "date",
+          "title": "Created At",
+          "type": "string"
+        },
+        "merged_at": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Merged At"
+        },
+        "status": {
+          "$ref": "#/$defs/PRStatus"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "summary",
+        "contribution",
+        "created_at",
+        "status",
+        "confidence"
+      ],
+      "title": "PullRequest",
+      "type": "object"
+    },
+    "Skill": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "Canonical name, e.g. 'PostgreSQL'.",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "category": {
+          "description": "Skill group, e.g. 'Databases', 'Languages'.",
+          "minLength": 1,
+          "title": "Category",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "aliases": {
+          "description": "Other spellings, e.g. ['Postgres', 'psql'].",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "category"
+      ],
+      "title": "Skill",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The root of `workstory-experience.json`.",
+  "properties": {
+    "metadata": {
+      "$ref": "#/$defs/Metadata"
+    },
+    "professional_summary": {
+      "$ref": "#/$defs/ProfessionalSummary"
+    },
+    "projects": {
+      "items": {
+        "$ref": "#/$defs/Project"
+      },
+      "title": "Projects",
+      "type": "array"
+    },
+    "pull_requests": {
+      "items": {
+        "$ref": "#/$defs/PullRequest"
+      },
+      "title": "Pull Requests",
+      "type": "array"
+    },
+    "skills": {
+      "items": {
+        "$ref": "#/$defs/Skill"
+      },
+      "title": "Skills",
+      "type": "array"
+    },
+    "categories": {
+      "items": {
+        "$ref": "#/$defs/Category"
+      },
+      "title": "Categories",
+      "type": "array"
+    }
+  },
+  "required": [
+    "metadata",
+    "professional_summary"
+  ],
+  "title": "WorkStory Experience File",
+  "type": "object"
+}
