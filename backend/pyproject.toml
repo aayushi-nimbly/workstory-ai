@@ -9,6 +9,7 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "pydantic>=2.9,<3",
     "pydantic-settings>=2.6",
+    "python-multipart>=0.0.12",
     "sqlalchemy>=2.0",
     "uvicorn[standard]>=0.32",
 ]
@@ -23,6 +24,7 @@ dev = [
 [project.scripts]
 workstory-validate = "app.experience.validate:main"
 workstory-export-schema = "app.experience.export_schema:main"
+workstory-import = "app.services.importer:main"
 
 [build-system]
 requires = ["hatchling"]

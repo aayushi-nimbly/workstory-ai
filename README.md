@@ -46,7 +46,14 @@ uv run pytest
 
 # Validate an experience file
 uv run workstory-validate ../examples/sample-experience.json
+
+# Import it into the database (CLI, or POST /imports with the file while the API runs)
+uv run workstory-import ../examples/sample-experience.json
+curl -F "file=@../examples/sample-experience.json" localhost:8000/imports
 ```
+
+Imports are snapshots: records missing from the file are removed, and re-importing
+an unchanged file is a no-op (`--force` / `?force=true` to re-import anyway).
 
 ## Privacy
 

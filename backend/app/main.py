@@ -8,7 +8,7 @@ import logging
 
 from fastapi import FastAPI
 
-from app.api import health
+from app.api import health, imports
 from app.config import get_settings
 
 
@@ -24,6 +24,7 @@ def create_app() -> FastAPI:
         description="Experience library, RAG assistant and interview prep API.",
     )
     app.include_router(health.router)
+    app.include_router(imports.router)
     return app
 
 
