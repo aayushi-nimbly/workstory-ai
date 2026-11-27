@@ -3,14 +3,25 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import models as db
-from app.db.session import get_db
+from app.db.session import SessionFactory, get_db, get_session_factory
 from app.experience.checks import Issue
+from app.llm import LLMProvider, get_llm
+from app.services.embedding import embedding_status, run_embedding
 from app.services.importer import ImportValidationError, import_experience
 
 router = APIRouter(prefix="/imports", tags=["imports"])
@@ -32,6 +43,14 @@ class ImportResponse(BaseModel):
     unchanged: bool
     counts: dict[str, int]
     warnings: list[IssueOut]
+    embedding_scheduled: bool
+
+
+class EmbeddingStatusOut(BaseModel):
+    model: str
+    total: int
+    embedded: int
+    pending: int
 
 
 class ImportRecordOut(BaseModel):
@@ -60,7 +79,10 @@ class ImportRecordOut(BaseModel):
 async def create_import(
     file: UploadFile,
     response: Response,
+    background: BackgroundTasks,
     session: Annotated[Session, Depends(get_db)],
+    session_factory: Annotated[SessionFactory, Depends(get_session_factory)],
+    llm: Annotated[LLMProvider, Depends(get_llm)],
     force: Annotated[bool, Query(description="Import even if the file is unchanged.")] = False,
 ) -> ImportResponse:
     """Upload a `workstory-experience.json` file and load it into the database."""
@@ -86,11 +108,57 @@ async def create_import(
 
     if result.unchanged:
         response.status_code = status.HTTP_200_OK
+    scheduled = _schedule_embedding(background, session, session_factory, llm)
     return ImportResponse(
         import_id=result.import_id,
         unchanged=result.unchanged,
         counts=result.counts,
         warnings=[IssueOut.from_issue(i) for i in result.warnings],
+        embedding_scheduled=scheduled,
+    )
+
+
+def _schedule_embedding(
+    background: BackgroundTasks,
+    session: Session,
+    session_factory: SessionFactory,
+    llm: LLMProvider,
+) -> bool:
+    if embedding_status(session, llm.embed_model).pending == 0:
+        return False
+
+    def task() -> None:
+        with session_factory() as bg_session:
+            run_embedding(bg_session, llm)
+
+    background.add_task(task)
+    return True
+
+
+@router.get("/embedding", response_model=EmbeddingStatusOut)
+def get_embedding_status(
+    session: Annotated[Session, Depends(get_db)],
+    llm: Annotated[LLMProvider, Depends(get_llm)],
+) -> EmbeddingStatusOut:
+    """How many chunks have embeddings for the current model."""
+    s = embedding_status(session, llm.embed_model)
+    return EmbeddingStatusOut(
+        model=llm.embed_model, total=s.total, embedded=s.embedded, pending=s.pending
+    )
+
+
+@router.post("/embedding", response_model=EmbeddingStatusOut, status_code=status.HTTP_202_ACCEPTED)
+def start_embedding(
+    background: BackgroundTasks,
+    session: Annotated[Session, Depends(get_db)],
+    session_factory: Annotated[SessionFactory, Depends(get_session_factory)],
+    llm: Annotated[LLMProvider, Depends(get_llm)],
+) -> EmbeddingStatusOut:
+    """Embed any pending chunks in the background (e.g. after Ollama was unavailable)."""
+    _schedule_embedding(background, session, session_factory, llm)
+    s = embedding_status(session, llm.embed_model)
+    return EmbeddingStatusOut(
+        model=llm.embed_model, total=s.total, embedded=s.embedded, pending=s.pending
     )
 
 

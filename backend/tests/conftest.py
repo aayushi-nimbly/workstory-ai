@@ -1,4 +1,5 @@
 import copy
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -136,3 +137,32 @@ def alembic_config(test_engine):
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("sqlalchemy.url", test_engine.url.render_as_string(hide_password=False))
     return cfg
+
+
+@pytest.fixture
+def fake_llm():
+    from tests.fakes import FakeLLM
+
+    return FakeLLM()
+
+
+@pytest.fixture
+def make_api_client(db_session, fake_llm):
+    """TestClient wired to the test database and the fake model provider.
+
+    Background tasks (e.g. embedding) also use the test session, never the real database.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.db.session import get_db, get_session_factory
+    from app.llm import get_llm
+    from app.main import create_app
+
+    def _make(llm=None):
+        app = create_app()
+        app.dependency_overrides[get_db] = lambda: db_session
+        app.dependency_overrides[get_session_factory] = lambda: lambda: nullcontext(db_session)
+        app.dependency_overrides[get_llm] = lambda: llm or fake_llm
+        return TestClient(app)
+
+    return _make

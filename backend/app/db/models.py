@@ -13,8 +13,10 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
+    Computed,
     Date,
     DateTime,
     ForeignKey,
@@ -25,9 +27,10 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.config import get_settings
 from app.db.base import Base
 from app.experience.models import Complexity, Confidence, Involvement, PRStatus
 
@@ -191,3 +194,58 @@ class Import(Base):
     error: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ChunkType(StrEnum):
+    overview = "overview"
+    problem = "problem"
+    contributions = "contributions"
+    implementation = "implementation"
+    decision = "decision"
+    challenge = "challenge"
+    outcomes = "outcomes"
+    skills = "skills"
+    pull_request = "pull_request"
+
+
+EMBED_DIMENSIONS = get_settings().embed_dimensions
+
+
+class Chunk(Base):
+    """A self-contained piece of experience text, used for search and RAG.
+
+    Chunks are rebuilt from projects and PRs on every import. `content_hash`
+    lets unchanged chunks keep their embedding; `embedding` is NULL until the
+    embedding step has run.
+    """
+
+    __tablename__ = "chunks"
+    __table_args__ = (
+        _check_in("chunk_type", ChunkType, "chunk_type_valid"),
+        Index("ix_chunks_search", "search", postgresql_using="gin"),
+        Index(
+            "ix_chunks_embedding",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    pr_ids: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    chunk_type: Mapped[str] = mapped_column(String(30))
+    title: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text)
+    skills: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    categories: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    content_hash: Mapped[str] = mapped_column(String(64))
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBED_DIMENSIONS))
+    embed_model: Mapped[str | None] = mapped_column(Text)
+    embedded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Full-text search vector, maintained by PostgreSQL.
+    search: Mapped[str] = mapped_column(
+        TSVECTOR, Computed("to_tsvector('english', title || ' ' || content)", persisted=True)
+    )

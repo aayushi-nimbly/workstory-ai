@@ -32,6 +32,9 @@ class LLMUnavailableError(RuntimeError):
 
 
 class LLMProvider(Protocol):
+    embed_model: str
+    """Name of the embedding model; stored with each embedding to detect model changes."""
+
     def embed(self, texts: Sequence[str], *, kind: EmbedKind) -> list[list[float]]:
         """Embed texts. `kind` lets models use different prefixes for documents and queries."""
         ...

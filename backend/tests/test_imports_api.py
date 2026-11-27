@@ -1,19 +1,14 @@
 import json
 
 import pytest
-from fastapi.testclient import TestClient
 
 from app.api import imports as imports_api
-from app.db.session import get_db
-from app.main import create_app
 from tests.test_importer import SAMPLE_PATH
 
 
 @pytest.fixture
-def client(db_session):
-    app = create_app()
-    app.dependency_overrides[get_db] = lambda: db_session
-    return TestClient(app)
+def client(make_api_client):
+    return make_api_client()
 
 
 def upload(client, content: bytes, **params):

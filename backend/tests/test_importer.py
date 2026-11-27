@@ -53,7 +53,13 @@ def test_import_sample(db_session, sample):
     result = import_experience(db_session, encode(sample))
 
     assert not result.unchanged
-    assert result.counts == {"projects": 6, "pull_requests": 26, "skills": 22, "categories": 11}
+    assert result.counts == {
+        "projects": 6,
+        "pull_requests": 26,
+        "skills": 22,
+        "categories": 11,
+        "chunks": 77,
+    }
     assert table_counts(db_session) == expected_counts(sample)
 
     profile = db_session.get(db.Profile, 1)

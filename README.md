@@ -27,7 +27,14 @@ Python · FastAPI · PostgreSQL · pgvector · Next.js · Ollama (local LLM + em
 
 ## Local development
 
-Requirements: Docker, [uv](https://docs.astral.sh/uv/), Node.js 20+.
+Requirements: Docker, [uv](https://docs.astral.sh/uv/), Node.js 20+, [Ollama](https://ollama.com).
+
+```bash
+# Local models (one-time download, ~5 GB)
+ollama serve            # or open the Ollama app
+ollama pull nomic-embed-text
+ollama pull llama3.1:8b
+```
 
 ```bash
 # 1. Start PostgreSQL + pgvector (host port 5433)
@@ -47,8 +54,11 @@ uv run pytest
 # Validate an experience file
 uv run workstory-validate ../examples/sample-experience.json
 
-# Import it into the database (CLI, or POST /imports with the file while the API runs)
+# Import it into the database and embed its chunks (CLI, or POST /imports while the API runs)
 uv run workstory-import ../examples/sample-experience.json
+
+# Embed any chunks still missing embeddings (e.g. if Ollama was off during import)
+uv run workstory-embed
 curl -F "file=@../examples/sample-experience.json" localhost:8000/imports
 ```
 

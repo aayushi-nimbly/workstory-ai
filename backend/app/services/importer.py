@@ -29,6 +29,7 @@ from app.db import models as db
 from app.experience.checks import Issue
 from app.experience.models import ExperienceFile
 from app.experience.validate import validate_data
+from app.services.chunking import build_chunks, sync_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -185,11 +186,14 @@ def _apply(session: Session, data: ExperienceFile) -> dict[str, int]:
             )
     session.flush()
 
+    chunk_count = sync_chunks(session, build_chunks(data))
+
     return {
         "projects": len(data.projects),
         "pull_requests": len(data.pull_requests),
         "skills": len(data.skills),
         "categories": len(data.categories),
+        "chunks": chunk_count,
     }
 
 
@@ -240,6 +244,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Import a WorkStory experience JSON file.")
     parser.add_argument("file", type=Path)
     parser.add_argument("--force", action="store_true", help="import even if unchanged")
+    parser.add_argument("--no-embed", action="store_true", help="skip the embedding step")
     args = parser.parse_args(argv)
 
     with Session(get_engine(), expire_on_commit=False) as session:
@@ -254,10 +259,15 @@ def main(argv: list[str] | None = None) -> int:
     for issue in result.warnings:
         print(issue)
     if result.unchanged:
-        print(f"= File unchanged since import #{result.import_id}; nothing to do.")
+        print(f"= File unchanged since import #{result.import_id}; nothing to import.")
     else:
         print(f"✓ Import #{result.import_id} completed: {result.counts}")
-    return 0
+
+    if args.no_embed:
+        return 0
+    from app.services import embedding
+
+    return embedding.main([])
 
 
 if __name__ == "__main__":

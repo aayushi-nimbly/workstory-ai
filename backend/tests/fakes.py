@@ -27,6 +27,8 @@ def _bag_of_words_vector(text: str) -> list[float]:
 
 
 class FakeLLM:
+    embed_model = "fake-embed"
+
     def __init__(
         self,
         *,
