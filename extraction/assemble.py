@@ -116,7 +116,6 @@ SKILL_GROUPS = {
         "Prompt Engineering",
         "Prompt Injection Mitigation",
         "OpenAI API",
-        "Claude",
         "Gemini",
         "Vertex AI",
         "MCP",
