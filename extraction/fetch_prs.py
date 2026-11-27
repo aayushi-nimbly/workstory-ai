@@ -37,8 +37,14 @@ def gh_json(*args: str) -> object:
 
 def search_prs(limit: int) -> list[dict]:
     return gh_json(
-        "search", "prs", "--author", "@me", "--limit", str(limit),
-        "--json", "number,title,repository,state,createdAt,closedAt,url,isDraft",
+        "search",
+        "prs",
+        "--author",
+        "@me",
+        "--limit",
+        str(limit),
+        "--json",
+        "number,title,repository,state,createdAt,closedAt,url,isDraft",
     )  # type: ignore[return-value]
 
 
