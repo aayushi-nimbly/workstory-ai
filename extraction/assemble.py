@@ -4,6 +4,7 @@ Inputs (all under data/extraction/, git-ignored):
     pr-records/*.json   step 1 output: one record per PR
     projects/*.json     step 2 output: Project objects
     profile.json        owner name and professional summary
+    complexity.json     optional: {project_id: {complexity, reason}} from step 3 (reviewed)
 
 Output:
     data/workstory-experience.json  (validated with the app's schema)
@@ -157,6 +158,15 @@ def main() -> int:
             d["pr_ids"] = [clean_id(i) for i in d.get("pr_ids", [])]
         # Metrics must be measured outcomes; stated targets are not evidence of impact.
         p["metrics"] = [m for m in p.get("metrics", []) if "target" not in m["evidence"].lower()]
+
+    # ---- Complexity scored by the challenge solved (step 3), if available ----
+    scores_path = EXTRACTION / "complexity.json"
+    if scores_path.exists():
+        scores = json.loads(scores_path.read_text())
+        for p in projects:
+            if p["id"] in scores:
+                p["complexity"] = scores[p["id"]]["complexity"]
+                p["complexity_reason"] = scores[p["id"]]["reason"]
 
     # ---- Skills: one spelling per skill, strongest involvement per project ----
     canon = canonical_names(projects)

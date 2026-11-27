@@ -25,7 +25,7 @@ Follow the schema exactly. In particular:
   `discussed`, `mentioned`.
 - `confidence`: `low` if most PRs had vague descriptions; list what is unclear in
   `uncertainties`.
-- `complexity`: `high` for multi-repo or architectural work, `low` for small changes.
+- `complexity`: by the challenge solved, not by size — see `03-complexity.md`.
 
 ## Rules
 

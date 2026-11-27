@@ -56,6 +56,7 @@ def _summary_fields(project: db.Project, stats: PRStats) -> dict:
         "name": project.name,
         "summary": project.summary,
         "complexity": project.complexity,
+        "complexity_reason": project.complexity_reason,
         "confidence": project.confidence,
         "categories": sorted(link.category.name for link in project.category_links),
         "skills": _project_skills(project),

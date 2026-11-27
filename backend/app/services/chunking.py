@@ -68,7 +68,9 @@ def project_chunks(project: Project) -> list[ChunkSpec]:
             _lines(
                 project.summary,
                 f"Categories: {', '.join(project.categories)}",
-                f"Complexity: {project.complexity.value}. Confidence: {project.confidence.value}.",
+                f"Complexity: {project.complexity.value}"
+                + (f" ({project.complexity_reason})" if project.complexity_reason else "")
+                + f". Confidence: {project.confidence.value}.",
                 f"Unverified: {' '.join(project.uncertainties)}" if project.uncertainties else None,
             ),
         ),

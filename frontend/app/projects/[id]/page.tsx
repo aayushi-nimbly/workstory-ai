@@ -81,6 +81,11 @@ async function ProjectContent({ params }: { params: Promise<{ id: string }> }) {
           </span>
         </div>
         <p className="detail-summary">{project.summary}</p>
+        {project.complexity_reason ? (
+          <p className="complexity-reason">
+            <span>Why {project.complexity} complexity:</span> {project.complexity_reason}
+          </p>
+        ) : null}
       </div>
 
       <div className="detail-grid">

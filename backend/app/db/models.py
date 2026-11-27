@@ -104,6 +104,7 @@ class Project(TimestampMixin, Base):
     metrics: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
     uncertainties: Mapped[list[str]] = mapped_column(JSONB, server_default="[]")
     complexity: Mapped[str] = mapped_column(String(20))
+    complexity_reason: Mapped[str | None] = mapped_column(Text)
     confidence: Mapped[str] = mapped_column(String(20))
 
     pull_requests: Mapped[list["PullRequest"]] = relationship(back_populates="project")

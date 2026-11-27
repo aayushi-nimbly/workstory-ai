@@ -71,3 +71,11 @@ def test_content_hash_changes_with_text(sample_data):
     after = {c.id: c.content_hash for c in build_chunks(sample_data)}
     changed = [cid for cid in before if before[cid] != after[cid]]
     assert changed == [f"{sample_data.projects[0].id}:decision-0"]
+
+
+def test_overview_includes_complexity_reason(sample_data):
+    sample_data.projects[0].complexity_reason = "Zero-downtime cutover of live data."
+    overview = {c.id: c for c in build_chunks(sample_data)}[
+        f"{sample_data.projects[0].id}:overview"
+    ]
+    assert "Complexity: high (Zero-downtime cutover of live data.)" in overview.content

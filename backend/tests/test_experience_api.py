@@ -205,3 +205,14 @@ def test_categories(client, imported):
     assert len(categories) == 11
     assert categories["AI & GenAI"]["project_count"] == 1
     assert categories["System Design"]["project_count"] == 2
+
+
+def test_complexity_reason_is_returned(client, db_session, imported):
+    from app.db.models import Project
+
+    db_session.get(Project, "proj-webhook-delivery").complexity_reason = "Failure handling."
+    db_session.flush()
+    body = client.get("/projects/proj-webhook-delivery").json()
+    assert body["complexity_reason"] == "Failure handling."
+    listed = client.get("/projects").json()["items"]
+    assert all("complexity_reason" in p for p in listed)

@@ -157,6 +157,10 @@ class Project(StrictModel):
     skills: list[ProjectSkill] = Field(default_factory=list)
     pr_ids: list[Identifier] = Field(default_factory=list)
     complexity: Complexity
+    complexity_reason: Text | None = Field(
+        default=None,
+        description="One sentence: the specific challenge that makes it complex (or not).",
+    )
     confidence: Confidence
     uncertainties: list[Text] = Field(
         default_factory=list,

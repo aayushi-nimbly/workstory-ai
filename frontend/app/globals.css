@@ -314,3 +314,6 @@ a.card, a.cat-card { color: inherit; text-decoration: none; }
 .ask-bar input:focus { border-color: var(--accent); }
 .ask-bar button { background: var(--accent); color: var(--bg); border: 0; border-radius: 10px; padding: 0 18px; font-weight: 600; cursor: pointer; }
 .ask-bar button:disabled { opacity: 0.4; cursor: default; }
+
+.complexity-reason { margin: 10px 0 0; max-width: 820px; font-size: 13px; color: var(--text-muted); }
+.complexity-reason span { color: var(--text-faint); }

@@ -31,6 +31,7 @@ export interface ProjectSummary {
   name: string;
   summary: string;
   complexity: Level;
+  complexity_reason: string | null;
   confidence: Level;
   categories: string[];
   skills: ProjectSkill[];

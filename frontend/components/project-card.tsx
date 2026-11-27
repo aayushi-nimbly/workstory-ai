@@ -13,7 +13,9 @@ export function ProjectCard({ project }: { project: ProjectSummary }) {
     <Link href={`/projects/${project.id}`} className="card">
       <div className="card-top">
         <div className="card-title">{project.name}</div>
-        <Complexity level={project.complexity} />
+        <span title={project.complexity_reason ?? undefined}>
+          <Complexity level={project.complexity} />
+        </span>
       </div>
       <p className="card-summary">{project.summary}</p>
       <div className="chips">

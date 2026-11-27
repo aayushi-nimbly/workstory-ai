@@ -46,6 +46,7 @@ class ProjectSummaryOut(ProjectPRStats):
     name: str
     summary: str
     complexity: str
+    complexity_reason: str | None
     confidence: str
     categories: list[str]
     skills: list[ProjectSkillOut]

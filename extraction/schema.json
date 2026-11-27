@@ -434,6 +434,20 @@
         "complexity": {
           "$ref": "#/$defs/Complexity"
         },
+        "complexity_reason": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One sentence: the specific challenge that makes it complex (or not).",
+          "title": "Complexity Reason"
+        },
         "confidence": {
           "$ref": "#/$defs/Confidence"
         },
