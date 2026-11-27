@@ -56,10 +56,10 @@ uv run workstory-validate ../examples/sample-experience.json
 
 # Import it into the database and embed its chunks (CLI, or POST /imports while the API runs)
 uv run workstory-import ../examples/sample-experience.json
+curl -F "file=@../examples/sample-experience.json" localhost:8000/imports
 
 # Embed any chunks still missing embeddings (e.g. if Ollama was off during import)
 uv run workstory-embed
-curl -F "file=@../examples/sample-experience.json" localhost:8000/imports
 ```
 
 ```bash
