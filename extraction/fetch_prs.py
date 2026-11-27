@@ -5,9 +5,10 @@ Read-only. Saves PR metadata, descriptions and changed file *names* (never diffs
 Usage:
     python extraction/fetch_prs.py                    # all PRs you authored
     python extraction/fetch_prs.py --limit 50         # quick trial
+    python extraction/fetch_prs.py --author old-login # PRs from another account you used
 
 Output (git-ignored):
-    data/raw/pr-index.json        search results
+    data/raw/pr-index[-<author>].json  search results
     data/raw/prs/<repo>__<n>.json one file per PR (re-runs skip existing files)
     data/raw/prs.json             everything combined
 """
@@ -35,12 +36,12 @@ def gh_json(*args: str) -> object:
     return json.loads(result.stdout)
 
 
-def search_prs(limit: int) -> list[dict]:
+def search_prs(author: str, limit: int) -> list[dict]:
     return gh_json(
         "search",
         "prs",
         "--author",
-        "@me",
+        author,
         "--limit",
         str(limit),
         "--json",
@@ -59,6 +60,7 @@ def fetch_detail(repo: str, number: int) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--author", default="@me", help="GitHub login (default: you)")
     parser.add_argument("--limit", type=int, default=1000)
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args(argv)
@@ -66,8 +68,9 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = RAW / "prs"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    index = search_prs(args.limit)
-    (RAW / "pr-index.json").write_text(json.dumps(index, indent=2))
+    index = search_prs(args.author, args.limit)
+    suffix = "" if args.author == "@me" else f"-{args.author}"
+    (RAW / f"pr-index{suffix}.json").write_text(json.dumps(index, indent=2))
     print(f"Found {len(index)} PRs")
 
     todo = []
