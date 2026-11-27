@@ -46,11 +46,13 @@ Name the project(s) and say concretely what was done. Never answer with just "Ye
 "modified"/"used" = worked with something that already existed. "discussed"/"mentioned" = \
 NOT hands-on: say clearly it was only discussed or mentioned, and set support to "partial".
 5. If evidence marks a project as low confidence or unverified, say so in "limitations".
-6. If the evidence does not answer the question, set support to "none" and answer: \
-"There isn't enough evidence in your experience to answer this." Never use general knowledge.
+6. If the evidence does not show the experience asked about, set support to "none", cite \
+nothing, and answer: "There isn't enough evidence in your experience to answer this." \
+Never use general knowledge.
 
-support: "direct" = the evidence clearly answers the question with hands-on work; \
-"partial" = related or not hands-on; "none" = not relevant.
+support says whether the evidence shows the engineer HAS the experience asked about: \
+"direct" = yes, hands-on work; "partial" = related work, or only discussed/used; \
+"none" = no such experience in the evidence (always "none" when the answer is no).
 
 Example format (the project here is fictional; never reuse its details):
 {"answer": "Yes. In Project Alpha you implemented a caching layer in front of the orders API \\
@@ -73,6 +75,7 @@ ANSWER_SCHEMA = {
 }
 
 _LABEL = re.compile(r"\[(E\d+)\]")
+_NEGATIVE_ANSWER = re.compile(r"^\s*no\b", re.IGNORECASE)
 
 
 @dataclass
@@ -154,6 +157,11 @@ def _ground(data: dict, hits: list[SearchHit]) -> tuple[str, Support, list[Citat
     limitations = data.get("limitations") or None
     if isinstance(limitations, str) and limitations.strip().lower() in {"null", "none", "n/a", ""}:
         limitations = None
+    if support == Support.direct and _NEGATIVE_ANSWER.match(answer_text):
+        # "No." with direct support means the model confused "answers the question" with
+        # "has the experience". A plain no is never direct evidence of experience.
+        logger.warning("Model answered no with direct support; treating as no evidence")
+        return INSUFFICIENT, Support.none, [], limitations
     if support != Support.none and not labels:
         # A claim of support with nothing to back it up is not shown to the user.
         logger.warning("Model claimed %s support without valid citations", support)

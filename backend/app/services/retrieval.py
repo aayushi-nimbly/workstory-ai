@@ -9,6 +9,7 @@ RRF only looks at positions, not raw scores, so the two very different score
 scales never need to be normalised: score = sum(1 / (RRF_K + rank)).
 """
 
+import re
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -22,6 +23,32 @@ from app.llm import LLMProvider, LLMUnavailableError
 from app.services.experience import _skill_lookup as skill_lookup
 
 RRF_K = 60
+
+# Words common in questions about experience but meaningless for matching
+# ("What features have I built?" should not match "feature flags").
+QUESTION_NOISE = {
+    "anything",
+    "built",
+    "build",
+    "building",
+    "done",
+    "experience",
+    "feature",
+    "features",
+    "project",
+    "projects",
+    "something",
+    "tell",
+    "thing",
+    "things",
+    "time",
+    "work",
+    "worked",
+    "working",
+    "ever",
+    "made",
+    "make",
+}
 CANDIDATES = 20  # how many results each method contributes before fusion
 
 
@@ -101,7 +128,8 @@ def keyword_search(
 ) -> list[tuple[db.Chunk, float]]:
     # plainto_tsquery stems words and drops stop words, but ANDs them together.
     # Questions rarely share every word with the answer, so OR the terms instead.
-    and_query = func.plainto_tsquery("english", query)
+    words = [w for w in re.findall(r"[\w.+#-]+", query) if w.lower() not in QUESTION_NOISE]
+    and_query = func.plainto_tsquery("english", " ".join(words))
     # A query of only stop words ("have I") has no terms: no keyword hits.
     if not session.scalar(select(func.numnode(and_query))):
         return []

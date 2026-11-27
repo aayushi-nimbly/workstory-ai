@@ -147,3 +147,20 @@ def test_ask_api_model_down(make_api_client, indexed):
 @pytest.mark.parametrize("question", ["", "   "])
 def test_ask_api_rejects_blank(make_api_client, indexed, question):
     assert make_api_client().post("/assistant/ask", json={"question": question}).status_code == 422
+
+
+def test_plain_no_with_direct_support_is_treated_as_no_evidence(indexed):
+    llm = FakeLLM(reply=reply("No.", support="direct", cited=["E1", "E2"]))
+    result = ask(indexed, llm, "Have I written Rust?")
+    assert result.support == Support.none
+    assert result.answer == INSUFFICIENT
+    assert result.citations == []
+
+
+def test_no_with_partial_support_is_kept(indexed):
+    llm = FakeLLM(
+        reply=reply("No, Kafka was only discussed [E1].", support="partial", cited=["E1"])
+    )
+    result = ask(indexed, llm, "Have I used Kafka?")
+    assert result.support == Support.partial
+    assert len(result.citations) == 1

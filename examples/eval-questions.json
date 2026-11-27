@@ -1,0 +1,155 @@
+[
+  {
+    "id": "q01",
+    "question": "Have I implemented retry mechanisms?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-webhook-delivery"
+    ]
+  },
+  {
+    "id": "q02",
+    "question": "What performance optimisation work have I done?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-shipment-search-performance",
+      "proj-tracking-postgres-migration"
+    ]
+  },
+  {
+    "id": "q03",
+    "question": "Have I migrated data between databases?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-tracking-postgres-migration"
+    ]
+  },
+  {
+    "id": "q04",
+    "question": "How did I avoid downtime during a migration?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-tracking-postgres-migration"
+    ]
+  },
+  {
+    "id": "q05",
+    "question": "Have I built a job queue?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-webhook-delivery"
+    ]
+  },
+  {
+    "id": "q06",
+    "question": "Have I integrated third-party APIs?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-carrier-rates-service"
+    ]
+  },
+  {
+    "id": "q07",
+    "question": "Have I worked with Node.js and TypeScript?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-carrier-rates-service"
+    ]
+  },
+  {
+    "id": "q08",
+    "question": "Have I built anything with LLMs or RAG?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-support-docs-assistant"
+    ]
+  },
+  {
+    "id": "q09",
+    "question": "Have I used vector search?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-support-docs-assistant"
+    ]
+  },
+  {
+    "id": "q10",
+    "question": "Have I fixed N+1 query problems?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-shipment-search-performance"
+    ]
+  },
+  {
+    "id": "q11",
+    "question": "Have I implemented pagination?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-shipment-search-performance"
+    ]
+  },
+  {
+    "id": "q12",
+    "question": "Have I added distributed tracing or structured logging?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-structured-logging-tracing"
+    ]
+  },
+  {
+    "id": "q13",
+    "question": "Have I worked with Google Cloud?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-structured-logging-tracing"
+    ]
+  },
+  {
+    "id": "q14",
+    "question": "How did I make webhooks idempotent?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-webhook-delivery"
+    ]
+  },
+  {
+    "id": "q15",
+    "question": "Have I handled slow external services with timeouts?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-carrier-rates-service"
+    ]
+  },
+  {
+    "id": "q16",
+    "question": "Have I designed a JSONB schema?",
+    "kind": "positive",
+    "expected_projects": [
+      "proj-tracking-postgres-migration"
+    ]
+  },
+  {
+    "id": "n01",
+    "question": "Have I used Kubernetes?",
+    "kind": "negative",
+    "expected_projects": []
+  },
+  {
+    "id": "n02",
+    "question": "Have I built iOS apps in Swift?",
+    "kind": "negative",
+    "expected_projects": []
+  },
+  {
+    "id": "n03",
+    "question": "Have I used GraphQL?",
+    "kind": "negative",
+    "expected_projects": []
+  },
+  {
+    "id": "n04",
+    "question": "Have I written Rust?",
+    "kind": "negative",
+    "expected_projects": []
+  }
+]

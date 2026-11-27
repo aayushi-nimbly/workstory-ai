@@ -146,3 +146,11 @@ def test_search_api_validation(make_api_client, indexed, payload):
 def test_search_api_vector_mode_model_down(make_api_client, indexed):
     response = make_api_client(DownLLM()).post("/search", json={"query": "x", "mode": "vector"})
     assert response.status_code == 503
+
+
+def test_keyword_search_ignores_question_noise_words(indexed, fake_llm):
+    # "features"/"built" must not drag in unrelated chunks that merely contain those words.
+    only_noise = search(indexed, fake_llm, "What features have I built?", mode=SearchMode.keyword)
+    assert only_noise.hits == []
+    with_topic = search(indexed, fake_llm, "What backoff features have I built?", mode="keyword")
+    assert with_topic.hits[0].chunk.project_id == "proj-webhook-delivery"

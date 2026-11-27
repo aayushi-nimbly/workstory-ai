@@ -28,6 +28,7 @@ workstory-validate = "app.experience.validate:main"
 workstory-export-schema = "app.experience.export_schema:main"
 workstory-import = "app.services.importer:main"
 workstory-embed = "app.services.embedding:main"
+workstory-eval = "app.evaluation:main"
 
 [build-system]
 requires = ["hatchling"]
