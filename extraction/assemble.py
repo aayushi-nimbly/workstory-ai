@@ -31,7 +31,7 @@ INVOLVEMENT_ORDER = ["implemented", "collaborated", "modified", "used", "discuss
 
 # Skill group for the Skills page. Unknown skills fall back to "Other".
 SKILL_GROUPS = {
-    "Languages": ["TypeScript", "JavaScript", "Python", "Go", "SQL"],
+    "Languages": ["TypeScript", "JavaScript", "Python", "Go", "SQL", "HTML", "CSS", "YAML"],
     "Backend": [
         "Node.js",
         "Express",
@@ -46,8 +46,26 @@ SKILL_GROUPS = {
         "PDFKit",
         "ExcelJS",
         "Jinja",
+        "FastAPI",
+        "Django",
+        "Django REST Framework",
+        "Flask",
+        "WebSockets",
+        "OAuth",
+        "Web Push",
     ],
-    "Frontend": ["React", "Next.js", "Redux", "Redux-Saga", "TanStack Query", "Lingui", "Jotai"],
+    "Frontend": [
+        "React",
+        "Next.js",
+        "Redux",
+        "Redux-Saga",
+        "TanStack Query",
+        "Lingui",
+        "Jotai",
+        "Vite",
+        "PWA",
+        "HTMX",
+    ],
     "Databases": [
         "MongoDB",
         "PostgreSQL",
@@ -74,6 +92,7 @@ SKILL_GROUPS = {
         "Docker",
         "Cloudflare Workers",
         "Firebase",
+        "Firebase Authentication",
         "Google Cloud Logging",
         "Google Cloud Monitoring",
     ],
@@ -88,6 +107,7 @@ SKILL_GROUPS = {
         "Technical Writing",
         "Unit Testing",
         "Contract Testing",
+        "Data Modeling",
     ],
     "Testing": ["Jest", "Vitest", "Pact", "Playwright", "Maestro"],
     "AI/GenAI": [
