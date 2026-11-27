@@ -66,7 +66,7 @@ export function Sidebar() {
 
       <nav>
         <div className="nav-group-label">Assistant</div>
-        <NavLink href="/assistant" icon="✦" trailing={<Soon stage={2} />}>
+        <NavLink href="/assistant" icon="✦">
           Ask my experience
         </NavLink>
       </nav>

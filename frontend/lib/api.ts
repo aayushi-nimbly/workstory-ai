@@ -165,3 +165,50 @@ export const getPullRequestCount = async () =>
   (await getOrThrow<Page<PullRequest>>("/pull-requests?limit=1")).total;
 export const getSkills = () => getOrThrow<Skill[]>("/skills");
 export const getCategories = () => getOrThrow<Category[]>("/categories");
+
+// ---------- Assistant ----------
+
+export type Support = "direct" | "partial" | "none";
+
+export interface Citation {
+  number: number;
+  chunk_id: string;
+  chunk_type: string;
+  title: string;
+  snippet: string;
+  project_id: string | null;
+  project_name: string | null;
+  pr_ids: string[];
+}
+
+export interface AskResponse {
+  question: string;
+  answer: string;
+  support: Support;
+  limitations: string | null;
+  citations: Citation[];
+  retrieved_chunk_ids: string[];
+  took_ms: number;
+  warning: string | null;
+}
+
+export type AskResult = { ok: true; data: AskResponse } | { ok: false; error: string };
+
+export async function askAssistant(question: string): Promise<AskResult> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/assistant/ask`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+  } catch {
+    return { ok: false, error: new ApiUnavailableError().message };
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const detail = typeof body?.detail === "string" ? body.detail : `Request failed (${response.status})`;
+    return { ok: false, error: detail };
+  }
+  return { ok: true, data: (await response.json()) as AskResponse };
+}

@@ -278,3 +278,39 @@ a.card, a.cat-card { color: inherit; text-decoration: none; }
 .error-box code { font-family: var(--mono); font-size: 12.5px; background: var(--bg-elev); padding: 2px 6px; border-radius: 5px; }
 .error-box button { margin-top: 12px; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 .back { display: inline-block; text-decoration: none; }
+
+/* ---------- Assistant ---------- */
+.chat { display: flex; flex-direction: column; gap: 16px; max-width: 860px; min-height: calc(100vh - 160px); }
+.chat-empty { flex: 1; display: grid; place-items: center; padding: 40px 0; }
+.chat-empty .chips { justify-content: center; max-width: 620px; }
+.chip.suggestion { cursor: pointer; padding: 7px 12px; font-size: 13px; }
+.chip.suggestion:hover { border-color: var(--border-strong); color: var(--text); }
+.turns { flex: 1; display: flex; flex-direction: column; gap: 22px; }
+.turn { display: flex; flex-direction: column; gap: 10px; }
+.question { align-self: flex-end; max-width: 80%; background: var(--accent-soft); color: var(--text); padding: 9px 14px; border-radius: 12px 12px 4px 12px; }
+.answer-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.answer-card.thinking { color: var(--text-faint); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.5; } }
+.answer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.answer-time { font-size: 11px; color: var(--text-faint); }
+.support { font-size: 11.5px; padding: 2px 8px; border-radius: 99px; border: 1px solid; }
+.support-direct { color: var(--ok); border-color: rgba(52,211,153,.35); }
+.support-partial { color: var(--warn); border-color: rgba(251,191,36,.35); }
+.support-none { color: var(--text-faint); border-color: var(--border-strong); }
+.answer-text { margin: 0; white-space: pre-wrap; line-height: 1.65; }
+.cite { display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; margin: 0 1px; border-radius: 5px; border: 0; background: var(--accent-soft); color: #c3cbff; font: 600 10.5px var(--mono); vertical-align: 2px; cursor: pointer; }
+.cite:hover { background: var(--accent); color: var(--bg); }
+.cite.static { cursor: default; vertical-align: 0; }
+.answer-note { margin: 10px 0 0; font-size: 12.5px; color: var(--warn); }
+.evidence-list { margin-top: 12px; border-top: 1px solid var(--border); }
+.evidence > summary { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 13px; }
+.evidence > summary a { color: var(--text); }
+.evidence > summary a:hover { color: var(--accent); }
+.evidence-section { color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evidence.highlight > summary { color: var(--accent); }
+.evidence-snippet { margin: 0 0 10px 25px; font-size: 12.5px; color: var(--text-muted); white-space: pre-wrap; }
+.ask-bar { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0 4px; background: linear-gradient(transparent, var(--bg) 30%); }
+.ask-bar input { flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; color: var(--text); font: inherit; outline: 0; }
+.ask-bar input:focus { border-color: var(--accent); }
+.ask-bar button { background: var(--accent); color: var(--bg); border: 0; border-radius: 10px; padding: 0 18px; font-weight: 600; cursor: pointer; }
+.ask-bar button:disabled { opacity: 0.4; cursor: default; }

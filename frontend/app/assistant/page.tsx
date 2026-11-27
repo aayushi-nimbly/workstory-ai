@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 
-import { Placeholder } from "@/components/placeholder";
+import { AssistantChat } from "@/components/assistant-chat";
 
 export const metadata: Metadata = { title: "Ask my experience" };
 
 export default function AssistantPage() {
   return (
-    <Placeholder
-      title="Ask my experience"
-      text="Questions about your work, answered with evidence."
-      stage={2}
-    />
+    <>
+      <div className="page-header">
+        <h1>Ask my experience</h1>
+      </div>
+      <AssistantChat />
+    </>
   );
 }
