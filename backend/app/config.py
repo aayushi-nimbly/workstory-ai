@@ -14,6 +14,16 @@ class Settings(BaseSettings):
     )
     log_level: str = "INFO"
 
+    # Local models served by Ollama (https://ollama.com).
+    ollama_url: str = "http://localhost:11434"
+    chat_model: str = "llama3.1:8b"
+    embed_model: str = "nomic-embed-text"
+    embed_dimensions: int = 768
+    # nomic-embed-text expects these task prefixes; leave empty for models that don't.
+    embed_document_prefix: str = "search_document: "
+    embed_query_prefix: str = "search_query: "
+    llm_timeout_seconds: float = 120.0
+
 
 @lru_cache
 def get_settings() -> Settings:
